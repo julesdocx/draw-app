@@ -162,24 +162,24 @@
       function saveDrawing() {
         const imageDataURL = canvas.toDataURL("image/png");
 
-        // Send the image data to the server using AJAX
+        // Send the image data to the server using AJAX - UPDATED FOR VERCEL API
         const xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function () {
           if (xhr.readyState === 4) {
             if (xhr.status === 200) {
-              true;
+              console.log("Drawing saved successfully");
             } else {
               alert("Failed to save drawing.");
             }
           }
         };
 
-        xhr.open("POST", "/savedrawing", true);
+        xhr.open("POST", "/api/savedrawing", true); // Updated endpoint
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(
           JSON.stringify({
             topic: topics[currentTopicIndex],
-            image: JSON.stringify(imageDataURL.split(",")[1]),
+            image: imageDataURL.split(",")[1], // Removed JSON.stringify wrapper
           })
         );
         xhr.onerror = function (error) {
@@ -188,9 +188,10 @@
         goToNextTopic();
         clearCanvas();
       }
+      
       function fetchDrawingsForCurrentTopic() {
         const folderName = topics[currentTopicIndex]; // Assuming topics is an array of folder names
-        const fetchUrl = `/fetchDocuments/${folderName}`;
+        const fetchUrl = `/api/fetchDocuments/${folderName}`; // Updated endpoint
 
         fetch(fetchUrl)
           .then((response) => {
