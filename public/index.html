@@ -61,6 +61,12 @@
       ];
       let currentTopicIndex = 0;
 
+      // Smart API URL detection for local vs production
+      function getApiUrl(endpoint) {
+        // For Vercel deployment, we'll use the api directory structure
+        return `/api${endpoint}`;
+      }
+
       function init() {
         setInstruction();
       }
@@ -174,7 +180,7 @@
           }
         };
 
-        xhr.open("POST", "/api/savedrawing", true); // Updated endpoint
+        xhr.open("POST", getApiUrl("/savedrawing"), true); // Smart endpoint detection
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(
           JSON.stringify({
@@ -191,7 +197,7 @@
       
       function fetchDrawingsForCurrentTopic() {
         const folderName = topics[currentTopicIndex]; // Assuming topics is an array of folder names
-        const fetchUrl = `/api/fetchDocuments/${folderName}`; // Updated endpoint
+        const fetchUrl = getApiUrl(`/fetchDocuments/${folderName}`); // Smart endpoint detection
 
         fetch(fetchUrl)
           .then((response) => {

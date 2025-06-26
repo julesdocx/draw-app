@@ -1,23 +1,9 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const dotenv = require("dotenv");
-const config = {
-  apiKey: "AIzaSyDlcem2X9UbFxE20qozxvn1pBftoNbtJ2g",
-  authDomain: "development-v-321909.firebaseapp.com",
-  projectId: "development-v-321909",
-  storageBucket: "development-v-321909.appspot.com",
-  messagingSenderId: "751787708018",
-  appId: "1:751787708018:web:46d2c272227bebba173ceb",
-};
-
-const firebase = require("firebase/app");
-
+const { initializeApp } = require("firebase/app");
 const {
   getFirestore,
   collection,
   addDoc,
-  doc,
-  updateDoc,
   getDocs,
   query,
   where,
@@ -29,31 +15,49 @@ const {
   uploadBytesResumable,
 } = require("firebase/storage");
 
-dotenv.config();
+const config = {
+  apiKey: "AIzaSyDlcem2X9UbFxE20qozxvn1pBftoNbtJ2g",
+  authDomain: "development-v-321909.firebaseapp.com",
+  projectId: "development-v-321909",
+  storageBucket: "development-v-321909.appspot.com",
+  messagingSenderId: "751787708018",
+  appId: "1:751787708018:web:46d2c272227bebba173ceb",
+};
+
+// Initialize Firebase
+const firebaseApp = initializeApp(config);
+const storage = getStorage(firebaseApp);
+const database = getFirestore(firebaseApp);
 
 const app = express();
 
-app.use(express.static("public"));
+// Middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
-app.use(bodyParser.json());
-app.use(
-  bodyParser.urlencoded({
-    extended: false,
-  })
-);
+// Helper function to add files to database
+const addFiles = async (imageLink, imageName, folderName) => {
+  try {
+    const files = collection(database, "files");
+    await addDoc(files, {
+      imageLink: imageLink,
+      imageName: imageName,
+      folderName: folderName,
+    });
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+};
 
-const starageApp = firebase.initializeApp(config);
-const storage = getStorage(starageApp);
-const database = getFirestore(app);
-
+// Routes
 app.get("/hello", (req, res) => {
-  return res.send("hello world").status(200);
+  return res.status(200).send("hello world");
 });
 
 app.post("/savedrawing", async (req, res) => {
   try {
-    const { image } = req.body;
-    const topic = req.body.topic;
+    const { image, topic } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: "Image data is required." });
@@ -61,9 +65,11 @@ app.post("/savedrawing", async (req, res) => {
 
     // Convert base64 data to a buffer
     const buffer = Buffer.from(image, "base64");
+    const timestamp = Date.now();
+    const fileName = `images/${timestamp}.png`;
 
-    // Create a reference to the storage path (replace 'images' with your desired path)
-    const storageRef = ref(storage, "images/" + Date.now() + ".png");
+    // Create a reference to the storage path
+    const storageRef = ref(storage, fileName);
 
     // Upload the file
     const uploadTask = uploadBytesResumable(storageRef, buffer);
@@ -72,32 +78,17 @@ app.post("/savedrawing", async (req, res) => {
     const snapshot = await uploadTask;
 
     // Get the download URL
-    const downloadURL = await getDownloadURL(snapshot.ref).then(
-      (downloadURL) => {
-        addFiles(downloadURL, "images/" + Date.now() + ".png", topic);
-      }
-    );
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    // Add to database
+    await addFiles(downloadURL, fileName, topic);
 
     res.status(200).json({ downloadURL });
   } catch (error) {
     console.error("Error uploading file:", error);
-    res.status(500).send("Internal Server Error");
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
-const files = collection(database, "files");
-
-const addFiles = (imageLink, imageName, folderName) => {
-  try {
-    addDoc(files, {
-      imageLink: imageLink,
-      imageName: imageName,
-      folderName: folderName,
-    });
-  } catch (err) {
-    console.log(err);
-  }
-};
 
 app.get("/fetchDocuments/:folderName", async (req, res) => {
   try {
@@ -121,7 +112,5 @@ app.get("/fetchDocuments/:folderName", async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server is listening at port ${port}`);
-});
+// Export the Express app as a serverless function
+module.exports = app;
